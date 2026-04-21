@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Ride-Hailing Data Platform — Production Failure Playbook</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0d0f12;
+    --bg2: #13161b;
+    --bg3: #1a1e26;
+    --bg4: #21262f;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf0;
+    --text2: #8b909e;
+    --text3: #555b6a;
+    --red: #ff4d4d;
+    --red-bg: rgba(255,77,77,0.08);
+    --red-border: rgba(255,77,77,0.25);
+    --amber: #f59e0b;
+    --amber-bg: rgba(245,158,11,0.08);
+    --amber-border: rgba(245,158,11,0.25);
+    --green: #22c55e;
+    --green-bg: rgba(34,197,94,0.08);
+    --green-border: rgba(34,197,94,0.25);
+    --blue: #3b82f6;
+    --blue-bg: rgba(59,130,246,0.08);
+    --blue-border: rgba(59,130,246,0.25);
+    --purple: #a855f7;
+    --purple-bg: rgba(168,85,247,0.08);
+    --purple-border: rgba(168,85,247,0.25);
+    --teal: #14b8a6;
+    --teal-bg: rgba(20,184,166,0.08);
+    --teal-border: rgba(20,184,166,0.25);
+    --font: 'IBM Plex Sans', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── LAYOUT ── */
+  .app { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 0 0 2rem;
+  }
+
+  .sidebar-header {
+    padding: 1.5rem 1.25rem 1rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.75rem;
+  }
+
+  .sidebar-logo {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .sidebar-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .sidebar-section {
+    padding: 0.5rem 1.25rem 0.25rem;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-top: 0.75rem;
+  }
+
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 1.25rem;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all .15s;
+    text-decoration: none;
+  }
+
+  .sidebar-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .sidebar-item.active { color: var(--text); border-left-color: var(--blue); background: var(--blue-bg); }
+
+  .sidebar-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  .main {
+    flex: 1;
+    min-width: 0;
+    padding: 2rem 2.5rem;
+    max-width: 960px;
+  }
+
+  /* ── PAGE HEADER ── */
+  .page-header {
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .page-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .page-title {
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+
+  .page-sub {
+    font-size: 14px;
+    color: var(--text2);
+    max-width: 600px;
+  }
+
+  /* ── SECTION ── */
+  .section { margin-bottom: 3rem; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1.25rem;
+  }
+
+  .section-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .section-title { font-size: 16px; font-weight: 600; color: var(--text); }
+  .section-desc { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  /* ── FAILURE CARD ── */
+  .failure-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+
+  .failure-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 14px 16px;
+    cursor: pointer;
+    gap: 12px;
+    user-select: none;
+  }
+
+  .failure-header:hover { background: rgba(255,255,255,0.02); }
+
+  .failure-left { display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 0; }
+
+  .severity-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .sev-critical { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+  .sev-high     { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+  .sev-medium   { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); }
+  .sev-low      { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+
+  .failure-name { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.4; }
+  .failure-hint { font-size: 12px; color: var(--text3); margin-top: 2px; }
+
+  .expand-icon {
+    width: 20px; height: 20px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text3); font-size: 12px;
+    transition: transform .2s;
+    margin-top: 2px;
+  }
+
+  .failure-card.open .expand-icon { transform: rotate(180deg); }
+
+  .failure-body {
+    display: none;
+    border-top: 1px solid var(--border);
+    padding: 0;
+  }
+
+  .failure-card.open .failure-body { display: block; }
+
+  .fb-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .fb-section:last-child { border-bottom: none; }
+
+  .fb-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text3);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .fb-text { font-size: 13px; color: var(--text2); line-height: 1.7; }
+
+  .step-list { list-style: none; }
+  .step-list li {
+    display: flex;
+    gap: 10px;
+    padding: 5px 0;
+    font-size: 13px;
+    color: var(--text2);
+    align-items: flex-start;
+  }
+
+  .step-num {
+    width: 20px; height: 20px;
+    background: var(--bg4);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text3);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .code {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #93c5fd;
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.7;
+    margin-top: 8px;
+  }
+
+  .code .c  { color: var(--text3); }
+  .code .k  { color: #f472b6; }
+  .code .s  { color: #86efac; }
+  .code .n  { color: #fcd34d; }
+
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .tag {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    background: var(--bg3);
+  }
+
+  .impact-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .impact-cell {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+
+  .impact-label { font-size: 10px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .impact-val { font-size: 13px; font-weight: 500; color: var(--text); }
+
+  /* ── SCENARIO TABLE ── */
+  .scenario-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 8px;
+  }
+
+  .scenario-table th {
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--bg3);
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .scenario-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text2);
+    vertical-align: top;
+  }
+
+  .scenario-table tr:last-child td { border-bottom: none; }
+  .scenario-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* ── LIVE STATUS PANEL ── */
+  .status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+  .status-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+
+  .status-name { font-size: 11px; color: var(--text2); margin-bottom: 6px; }
+
+  .status-val {
+    font-size: 20px;
+    font-weight: 600;
+    font-family: var(--mono);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .status-sub { font-size: 10px; color: var(--text3); }
+
+  .pulse {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .3; }
+  }
+
+  /* ── ALERT FEED ── */
+  .alert-feed { display: flex; flex-direction: column; gap: 6px; }
+
+  .alert-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+
+  .alert-item.crit { border-left: 3px solid var(--red); }
+  .alert-item.warn { border-left: 3px solid var(--amber); }
+  .alert-item.info { border-left: 3px solid var(--blue); }
+  .alert-item.ok   { border-left: 3px solid var(--green); }
+
+  .alert-time { font-family: var(--mono); font-size: 11px; color: var(--text3); white-space: nowrap; padding-top: 1px; }
+  .alert-text { font-size: 12px; color: var(--text2); line-height: 1.5; }
+  .alert-text strong { color: var(--text); font-weight: 500; }
+
+  /* ── RUNBOOK TABLE ── */
+  .runbook {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .runbook-header {
+    padding: 12px 16px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text2);
+    font-family: var(--mono);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .runbook-row {
+    display: grid;
+    grid-template-columns: 28px 180px 1fr 110px;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    align-items: start;
+  }
+
+  .runbook-row:last-child { border-bottom: none; }
+
+  .runbook-cell {
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--text2);
+    border-right: 1px solid var(--border);
+    line-height: 1.5;
+  }
+
+  .runbook-cell:last-child { border-right: none; }
+
+  .runbook-step {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+
+  .tab {
+    padding: 8px 16px;
+    font-size: 12px;
+    color: var(--text3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+
+  .tab:hover { color: var(--text2); }
+  .tab.active { color: var(--text); border-bottom-color: var(--blue); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">Production Playbook</div>
+    <div class="sidebar-title">Ride-Hailing Data Platform</div>
+  </div>
+
+  <div class="sidebar-section">Ingestion Layer</div>
+  <a class="sidebar-item active" href="#debezium"><span class="sidebar-dot" style="background:#ff4d4d"></span>Debezium / CDC</a>
+  <a class="sidebar-item" href="#kafka"><span class="sidebar-dot" style="background:#f59e0b"></span>Kafka broker</a>
+  <a class="sidebar-item" href="#gps-ingest"><span class="sidebar-dot" style="background:#3b82f6"></span>GPS ingestion API</a>
+
+  <div class="sidebar-section">Processing Layer</div>
+  <a class="sidebar-item" href="#flink-stream"><span class="sidebar-dot" style="background:#a855f7"></span>Flink streaming</a>
+  <a class="sidebar-item" href="#flink-batch"><span class="sidebar-dot" style="background:#a855f7"></span>Flink batch</a>
+  <a class="sidebar-item" href="#rule-engine"><span class="sidebar-dot" style="background:#14b8a6"></span>Rule engine</a>
+
+  <div class="sidebar-section">Storage Layer</div>
+  <a class="sidebar-item" href="#minio"><span class="sidebar-dot" style="background:#f59e0b"></span>MinIO / S3</a>
+  <a class="sidebar-item" href="#schema"><span class="sidebar-dot" style="background:#22c55e"></span>Schema evolution</a>
+
+  <div class="sidebar-section">Analytics Layer</div>
+  <a class="sidebar-item" href="#clickhouse"><span class="sidebar-dot" style="background:#3b82f6"></span>ClickHouse OLAP</a>
+  <a class="sidebar-item" href="#api"><span class="sidebar-dot" style="background:#22c55e"></span>REST API</a>
+
+  <div class="sidebar-section">Cross-Cutting</div>
+  <a class="sidebar-item" href="#data-quality"><span class="sidebar-dot" style="background:#f59e0b"></span>Data quality</a>
+  <a class="sidebar-item" href="#live-status"><span class="sidebar-dot" style="background:#22c55e"></span>Live status</a>
+  <a class="sidebar-item" href="#runbook"><span class="sidebar-dot" style="background:#ff4d4d"></span>Runbook</a>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+  <div class="page-header">
+    <div class="page-tag">v1.0 — All layers covered</div>
+    <h1 class="page-title">Production Failure Edge Cases</h1>
+    <p class="page-sub">Every failure scenario your platform can encounter, with root cause, business impact, detection signal, and step-by-step recovery. Click any scenario to expand.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION: DEBEZIUM / CDC
+  ═══════════════════════════════════════════════ -->
+  <div class="section" id="debezium">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--red-bg);border:1px solid var(--red-border)">
+        <span style="color:var(--red);font-size:16px">⬡</span>
+      </div>
+      <div>
+        <div class="section-title">Debezium / CDC — Ingestion Layer</div>
+        <div class="section-desc">PostgreSQL WAL → Debezium → Kafka Connect → Kafka topic</div>
+      </div>
+    </div>
+
+    <!-- FAILURE 1 -->
+    <div class="failure-card" id="fc1">
+      <div class="failure-header" onclick="toggle('fc1')">
+        <div class="failure-left">
+          <span class="severity-badge sev-critical">CRITICAL</span>
+          <div>
+            <div class="failure-name">WAL replication slot bloat — PostgreSQL disk full</div>
+            <div class="failure-hint">Debezium lag causes PG to retain WAL indefinitely → disk exhaustion → DB crash</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">Debezium reads from a PostgreSQL replication slot. If Debezium is down, slow, or restarted with a large gap, PG cannot clean up WAL segments — it must keep them until the slot catches up. At 5K inserts/sec on a busy trips table, WAL can grow at 2–5 GB/hour. Undetected, this fills your data volume and crashes PostgreSQL, taking down your entire transactional system — not just the data pipeline.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Business impact</div>
+          <div class="impact-row">
+            <div class="impact-cell"><div class="impact-label">Service affected</div><div class="impact-val" style="color:var(--red)">Full DB crash</div></div>
+            <div class="impact-cell"><div class="impact-label">Max lag before risk</div><div class="impact-val">~4 hours</div></div>
+            <div class="impact-cell"><div class="impact-label">Data loss risk</div><div class="impact-val" style="color:var(--red)">HIGH if PG crashes</div></div>
+          </div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Detection</div>
+          <div class="fb-text">Monitor <code style="font-family:var(--mono);color:#93c5fd">pg_replication_slots.confirmed_flush_lsn</code> lag. Alert when WAL retention > 20 GB.</div>
+          <div class="code"><span class="c">-- Run every 5 min, alert if result > 20000 MB</span>
+SELECT slot_name,
+       pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn)) AS lag_size
+FROM pg_replication_slots
+WHERE slot_type = <span class="s">'logical'</span>;</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Set <code style="font-family:var(--mono);color:#93c5fd">max_slot_wal_keep_size = 10GB</code> in postgresql.conf — PG will auto-drop the slot before disk is full (Debezium will need full snapshot on reconnect)</li>
+            <li><div class="step-num">2</div>If slot is already bloated, manually drop it: <code style="font-family:var(--mono);color:#93c5fd">SELECT pg_drop_replication_slot('debezium_slot');</code></li>
+            <li><div class="step-num">3</div>Restart Debezium — it detects missing slot and performs initial snapshot of current table state</li>
+            <li><div class="step-num">4</div>After snapshot, normal incremental CDC resumes. Gap period is covered by snapshot data.</li>
+            <li><div class="step-num">5</div>Run nightly reconciliation job to find any records missing from Silver during the gap and patch from PostgreSQL full export</li>
+          </ol>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention</div>
+          <div class="tags">
+            <span class="tag">max_slot_wal_keep_size=10GB</span>
+            <span class="tag">Alert: WAL lag &gt; 5GB</span>
+            <span class="tag">Debezium health check /q/health</span>
+            <span class="tag">PG disk alert at 70%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FAILURE 2 -->
+    <div class="failure-card" id="fc2">
+      <div class="failure-header" onclick="toggle('fc2')">
+        <div class="failure-left">
+          <span class="severity-badge sev-high">HIGH</span>
+          <div>
+            <div class="failure-name">Debezium connector restart causes duplicate CDC events</div>
+            <div class="failure-hint">Connector offset not committed before crash → replays already-processed events</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">Debezium commits its WAL offset to Kafka Connect's internal topic (<code style="font-family:var(--mono);color:#93c5fd">connect-offsets</code>) periodically, not after every event. If the connector crashes between commits, on restart it replays from the last committed offset — sending duplicate events to your Kafka topic. These duplicates flow into Flink, potentially causing double-counting in trip metrics, double payment records in Silver, or incorrect driver earnings.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Business impact</div>
+          <div class="impact-row">
+            <div class="impact-cell"><div class="impact-label">Risk</div><div class="impact-val" style="color:var(--amber)">Double payments</div></div>
+            <div class="impact-cell"><div class="impact-label">Detection window</div><div class="impact-val">Minutes to hours</div></div>
+            <div class="impact-cell"><div class="impact-label">Self-healing?</div><div class="impact-val">No — manual fix</div></div>
+          </div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Flink deduplication (bloom filter keyed on <code style="font-family:var(--mono);color:#93c5fd">op + lsn + table</code>) catches most duplicates in the stream path</li>
+            <li><div class="step-num">2</div>Silver layer: use Parquet MERGE/UPSERT on primary key — duplicate CDC events for same PK are idempotent (last write wins)</li>
+            <li><div class="step-num">3</div>After incident, run reconciliation: count events per trip_id in Silver vs PostgreSQL. Flag any trip_id with count > 1</li>
+          </ol>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention</div>
+          <div class="tags">
+            <span class="tag">offset.flush.interval.ms=1000</span>
+            <span class="tag">Flink: bloom filter dedup on LSN</span>
+            <span class="tag">Silver: upsert on PK</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FAILURE 3 -->
+    <div class="failure-card" id="fc3">
+      <div class="failure-header" onclick="toggle('fc3')">
+        <div class="failure-left">
+          <span class="severity-badge sev-high">HIGH</span>
+          <div>
+            <div class="failure-name">PostgreSQL schema change breaks Debezium</div>
+            <div class="failure-hint">ALTER TABLE on a captured table without Debezium config update → connector error loop</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">A developer runs <code style="font-family:var(--mono);color:#93c5fd">ALTER TABLE trips ADD COLUMN surge_zone_id VARCHAR(50)</code> on production without notifying the data team. Debezium's internal schema history (<code style="font-family:var(--mono);color:#93c5fd">debezium-history</code> Kafka topic) does not have this column. The next WAL event that includes this column causes a deserialization failure. Debezium connector enters error state. CDC stops. All new trip data stops flowing to Kafka.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Identify the failing connector: <code style="font-family:var(--mono);color:#93c5fd">GET /connectors/trips-cdc/status</code> — look for FAILED state with schema error</li>
+            <li><div class="step-num">2</div>Update Debezium connector config to include new column in <code style="font-family:var(--mono);color:#93c5fd">column.include.list</code></li>
+            <li><div class="step-num">3</div>Restart connector: <code style="font-family:var(--mono);color:#93c5fd">POST /connectors/trips-cdc/restart</code></li>
+            <li><div class="step-num">4</div>Debezium will replay from last committed offset — new column will be present in replayed events</li>
+            <li><div class="step-num">5</div>Update Avro schema in Schema Registry for the CDC topic to include the new field (nullable with default null)</li>
+          </ol>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention — mandatory DDL process</div>
+          <div class="fb-text">All schema changes to CDC-captured tables must go through a PR that includes: (1) Debezium config update, (2) Avro schema update with backward-compatible field, (3) Flink operator update to handle nullable field. Gate deployments on this checklist.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION: KAFKA
+  ═══════════════════════════════════════════════ -->
+  <div class="section" id="kafka">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--amber-bg);border:1px solid var(--amber-border)">
+        <span style="color:var(--amber);font-size:16px">◈</span>
+      </div>
+      <div>
+        <div class="section-title">Kafka Broker — Message Bus</div>
+        <div class="section-desc">Topic partitions, replication, consumer groups, offset management</div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc4">
+      <div class="failure-header" onclick="toggle('fc4')">
+        <div class="failure-left">
+          <span class="severity-badge sev-critical">CRITICAL</span>
+          <div>
+            <div class="failure-name">Kafka broker leader election storm — all partitions unavailable</div>
+            <div class="failure-hint">Simultaneous broker restart / network partition → ISR shrinks → producer timeout</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">With replication factor 3 and <code style="font-family:var(--mono);color:#93c5fd">min.insync.replicas=2</code>, if 2 of 3 brokers go down simultaneously (e.g., a patch restart cascade or rack-level power failure), the GPS topic <code style="font-family:var(--mono);color:#93c5fd">rides.gps.raw</code> loses quorum. Producers get <code style="font-family:var(--mono);color:#93c5fd">NOT_ENOUGH_REPLICAS</code> errors. GPS pings are lost for the outage duration — there is no replay possible since the data never entered Kafka.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Business impact</div>
+          <div class="impact-row">
+            <div class="impact-cell"><div class="impact-label">GPS data gap</div><div class="impact-val" style="color:var(--red)">Permanent loss</div></div>
+            <div class="impact-cell"><div class="impact-label">Trip tracking</div><div class="impact-val" style="color:var(--amber)">Blind for duration</div></div>
+            <div class="impact-cell"><div class="impact-label">Surge pricing</div><div class="impact-val" style="color:var(--amber)">Stale data</div></div>
+          </div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Bring brokers back up — leader election runs automatically, partitions re-assign within seconds</li>
+            <li><div class="step-num">2</div>GPS producers have local device buffers (typically 30–60s). On reconnect, devices flush buffered pings to Kafka — partial recovery</li>
+            <li><div class="step-num">3</div>For CDC data: Debezium was buffered at WAL level — no loss, replays on reconnect</li>
+            <li><div class="step-num">4</div>Mark affected Bronze partitions with a <code style="font-family:var(--mono);color:#93c5fd">_gap_metadata.json</code> file documenting the time range of missing GPS data</li>
+            <li><div class="step-num">5</div>Downstream (ClickHouse dashboards) — display a data quality banner for affected time windows</li>
+          </ol>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention</div>
+          <div class="tags">
+            <span class="tag">Brokers across 3 racks/AZs</span>
+            <span class="tag">Rolling restarts only (1 broker at a time)</span>
+            <span class="tag">GPS device SDK: local 60s buffer + retry</span>
+            <span class="tag">Alert: ISR &lt; RF</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc5">
+      <div class="failure-header" onclick="toggle('fc5')">
+        <div class="failure-left">
+          <span class="severity-badge sev-high">HIGH</span>
+          <div>
+            <div class="failure-name">Consumer group rebalance storm — Flink jobs pause for minutes</div>
+            <div class="failure-hint">Flink TaskManager OOM → task restart → Kafka rebalance → all consumers pause</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">A Flink TaskManager OOM kills one task. Flink restarts it. The Kafka consumer group detects a member leaving and triggers a rebalance — during which ALL consumers in the group stop processing and wait for partition reassignment. At 500K GPS events/sec, a 30-second rebalance pause accumulates 15M buffered events in Kafka. When consumers resume, they process at 2× speed to catch up, causing a CPU spike that can cascade into more OOMs.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Use <code style="font-family:var(--mono);color:#93c5fd">session.timeout.ms=45000</code> and <code style="font-family:var(--mono);color:#93c5fd">max.poll.interval.ms=300000</code> to reduce false rebalances</li>
+            <li><div class="step-num">2</div>Enable Kafka's incremental cooperative rebalancing: <code style="font-family:var(--mono);color:#93c5fd">partition.assignment.strategy=CooperativeStickyAssignor</code> — only affected partitions pause, not all</li>
+            <li><div class="step-num">3</div>For the OOM root cause: increase TaskManager heap or reduce Flink state size by compacting RocksDB state</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc6">
+      <div class="failure-header" onclick="toggle('fc6')">
+        <div class="failure-left">
+          <span class="severity-badge sev-medium">MEDIUM</span>
+          <div>
+            <div class="failure-name">Topic partition hot-spotting — one partition overwhelmed</div>
+            <div class="failure-hint">All trips from city event keyed to same driver_id prefix → single partition at 10× load</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">GPS topic is keyed on <code style="font-family:var(--mono);color:#93c5fd">driver_id</code>. If a new city launches with 10,000 drivers whose IDs all hash to the same partition bucket (e.g., sequential numeric IDs starting at a round number), one Kafka partition receives all GPS pings for that city. The Flink subtask consuming that partition becomes the bottleneck, building lag while other subtasks sit idle.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Identify hot partition: <code style="font-family:var(--mono);color:#93c5fd">kafka-consumer-groups.sh --describe</code> — look for one partition with 10× the lag of others</li>
+            <li><div class="step-num">2</div>Short-term: increase parallelism for that Flink subtask by adjusting <code style="font-family:var(--mono);color:#93c5fd">setParallelism()</code> on the consuming operator</li>
+            <li><div class="step-num">3</div>Medium-term: change GPS topic key to <code style="font-family:var(--mono);color:#93c5fd">murmur2_hash(driver_id + random_salt)</code> to scatter load — note: per-driver ordering is lost, acceptable for GPS pings</li>
+            <li><div class="step-num">4</div>Long-term: use 128 or 256 GPS partitions (not 64) with random sub-key for better distribution</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION: GPS INGESTION
+  ═══════════════════════════════════════════════ -->
+  <div class="section" id="gps-ingest">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--blue-bg);border:1px solid var(--blue-border)">
+        <span style="color:var(--blue);font-size:16px">◎</span>
+      </div>
+      <div>
+        <div class="section-title">GPS Ingestion API</div>
+        <div class="section-desc">Driver devices → REST/WebSocket/gRPC → Kafka producer</div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc7">
+      <div class="failure-header" onclick="toggle('fc7')">
+        <div class="failure-left">
+          <span class="severity-badge sev-critical">CRITICAL</span>
+          <div>
+            <div class="failure-name">GPS ingest service crash — complete GPS data loss for active trips</div>
+            <div class="failure-hint">No fallback buffer → active trip tracking blind until restart</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">Unlike Debezium (which has WAL as a replay buffer), GPS pings from devices are fire-and-forget UDP/HTTP. If the ingestion service crashes with no local buffer, pings sent during the outage are lost permanently. Active trips have no location updates — driver matching, ETA, and surge pricing all go blind. At 500K events/sec, even a 10-second outage means 5M lost GPS points.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Kubernetes readiness/liveness probes restart the pod within 15–30s automatically</li>
+            <li><div class="step-num">2</div>GPS device SDK should implement exponential backoff retry (10s, 30s, 60s) and local ring buffer for last 60 seconds of pings</li>
+            <li><div class="step-num">3</div>On recovery, device flushes buffered pings with original <code style="font-family:var(--mono);color:#93c5fd">event_time</code> — Flink event-time semantics handles the out-of-order delivery correctly via watermarks</li>
+            <li><div class="step-num">4</div>Mark the outage time window in Bronze metadata for downstream audit</li>
+          </ol>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention</div>
+          <div class="tags">
+            <span class="tag">Min 3 replicas for ingestion pods</span>
+            <span class="tag">Device SDK: 60s local ring buffer</span>
+            <span class="tag">Load balancer health checks</span>
+            <span class="tag">Circuit breaker to Kafka</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc8">
+      <div class="failure-header" onclick="toggle('fc8')">
+        <div class="failure-left">
+          <span class="severity-badge sev-high">HIGH</span>
+          <div>
+            <div class="failure-name">GPS timestamp skew — device clocks out of sync</div>
+            <div class="failure-hint">Driver device NTP drift → event_time 2+ minutes ahead/behind → Flink window misassignment</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">Flink uses <code style="font-family:var(--mono);color:#93c5fd">event_time</code> for windowed aggregations. If a driver's phone clock drifts by +5 minutes (common in low-end Android devices without reliable NTP), their GPS pings arrive at Flink with a future timestamp. Flink's watermark (2s late tolerance) will not admit these events into the correct window — they are either dropped to the side output or incorrectly placed in future windows. This causes ETA calculations and zone demand aggregations to be wrong for that driver.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Ingestion API stamps each event with <code style="font-family:var(--mono);color:#93c5fd">server_ingest_time</code> alongside the device's <code style="font-family:var(--mono);color:#93c5fd">event_time</code></li>
+            <li><div class="step-num">2</div>Flink validation operator: if <code style="font-family:var(--mono);color:#93c5fd">abs(event_time - server_ingest_time) &gt; 120s</code>, replace event_time with server_ingest_time and set <code style="font-family:var(--mono);color:#93c5fd">clock_corrected=true</code> flag</li>
+            <li><div class="step-num">3</div>KPI: track <code style="font-family:var(--mono);color:#93c5fd">clock_corrected</code> rate per device — high rate flags devices needing NTP enforcement</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION: FLINK STREAMING
+  ═══════════════════════════════════════════════ -->
+  <div class="section" id="flink-stream">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--purple-bg);border:1px solid var(--purple-border)">
+        <span style="color:var(--purple);font-size:16px">⬡</span>
+      </div>
+      <div>
+        <div class="section-title">Flink Streaming — Processing Layer</div>
+        <div class="section-desc">Stateful stream processing, checkpointing, exactly-once semantics</div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc9">
+      <div class="failure-header" onclick="toggle('fc9')">
+        <div class="failure-left">
+          <span class="severity-badge sev-critical">CRITICAL</span>
+          <div>
+            <div class="failure-name">Flink checkpoint failure — state not persisted, recovery replays hours of data</div>
+            <div class="failure-hint">MinIO write timeout during checkpoint → checkpoint fails → on crash, Flink replays from last successful checkpoint</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">Flink checkpoints every 30 seconds to MinIO. If MinIO is slow (high load) or the checkpoint takes longer than the timeout (default 10 minutes), the checkpoint fails. If Flink then crashes, it must recover from the last <em>successful</em> checkpoint — which could be hours ago if checkpoints have been failing silently. This means re-processing hours of Kafka events, which causes duplicate outputs to downstream sinks (ClickHouse, MinIO Silver) unless sinks are idempotent.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Business impact</div>
+          <div class="impact-row">
+            <div class="impact-cell"><div class="impact-label">Replay duration</div><div class="impact-val" style="color:var(--red)">Up to hours</div></div>
+            <div class="impact-cell"><div class="impact-label">Duplicate risk</div><div class="impact-val" style="color:var(--amber)">High</div></div>
+            <div class="impact-cell"><div class="impact-label">Self-healing?</div><div class="impact-val" style="color:var(--green)">Yes, with idempotent sinks</div></div>
+          </div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Flink automatically restores from last successful checkpoint — no manual action needed for state recovery</li>
+            <li><div class="step-num">2</div>ClickHouse sink: use <code style="font-family:var(--mono);color:#93c5fd">ReplacingMergeTree</code> engine — replayed events with same primary key are deduplicated at merge time</li>
+            <li><div class="step-num">3</div>MinIO Silver writes: use partition-keyed Parquet with upsert logic — replay overwrites existing Parquet files for the same time partition</li>
+            <li><div class="step-num">4</div>Investigate checkpoint failure root cause: <code style="font-family:var(--mono);color:#93c5fd">flink.jobmanager.checkpoint.history</code> → look for "checkpoint expired" or "MinIO connection timeout"</li>
+          </ol>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention</div>
+          <div class="tags">
+            <span class="tag">checkpoint.timeout=600000 (10min)</span>
+            <span class="tag">Alert: consecutive checkpoint failures &gt; 3</span>
+            <span class="tag">Incremental checkpoints (RocksDB)</span>
+            <span class="tag">MinIO dedicated for checkpoints</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc10">
+      <div class="failure-header" onclick="toggle('fc10')">
+        <div class="failure-left">
+          <span class="severity-badge sev-critical">CRITICAL</span>
+          <div>
+            <div class="failure-name">Flink backpressure cascade — entire pipeline stalls</div>
+            <div class="failure-hint">Slow sink (ClickHouse overloaded) → Flink buffers fill → backpressure propagates to Kafka consumers → lag explodes</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">Backpressure in Flink propagates upstream. If ClickHouse is slow to accept writes (e.g., a heavy compaction job runs), the Flink→ClickHouse sink blocks. The blocking operator slows upstream operators, which eventually slow the Kafka source consumer. Kafka lag grows. GPS pings queue in Kafka. Surge pricing goes stale. The entire pipeline degrades from one downstream slowness — this is the "slow consumer" problem at pipeline scale.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Detection</div>
+          <div class="fb-text">Flink Web UI → Job graph: backpressure percentage &gt; 50% shown in red on the affected operator. Also visible as growing Kafka consumer lag for the GPS consumer group.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Identify the backpressured operator in Flink Web UI</li>
+            <li><div class="step-num">2</div>For ClickHouse sink backpressure: add an async sink buffer (<code style="font-family:var(--mono);color:#93c5fd">AsyncSinkBase</code>) that decouples Flink throughput from ClickHouse write speed</li>
+            <li><div class="step-num">3</div>For ClickHouse overload: temporarily disable heavy background merges: <code style="font-family:var(--mono);color:#93c5fd">SYSTEM STOP MERGES</code></li>
+            <li><div class="step-num">4</div>Long-term: separate real-time ClickHouse cluster from batch analytics cluster to prevent interference</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc11">
+      <div class="failure-header" onclick="toggle('fc11')">
+        <div class="failure-left">
+          <span class="severity-badge sev-high">HIGH</span>
+          <div>
+            <div class="failure-name">RocksDB state store corruption — keyed state lost after crash</div>
+            <div class="failure-hint">Disk failure on TaskManager node corrupts RocksDB SST files → state unrecoverable</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">Flink stores keyed state (per-driver last known position, bloom filters, trip state) in RocksDB on the TaskManager's local disk. If the local disk fails or the node is terminated (cloud preemption), the in-memory/on-disk state is lost. Flink recovers from the MinIO checkpoint — but if the last checkpoint was 30s ago, 30s of state updates (position changes, new trips started) are lost. Driver utilisation counters reset. Active trip state is gone — those trips appear "orphaned."</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Restore from last MinIO checkpoint (automatic on Flink restart)</li>
+            <li><div class="step-num">2</div>For orphaned trips (trip started in the 30s gap): reconciliation job queries PostgreSQL for trips in status=active with no recent GPS in Silver → re-inject synthetic "trip_resumed" event</li>
+            <li><div class="step-num">3</div>Reduce checkpoint interval to 10s to minimize state loss window for critical state (trip lifecycle)</li>
+          </ol>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention</div>
+          <div class="tags">
+            <span class="tag">Incremental RocksDB checkpoints to MinIO</span>
+            <span class="tag">Checkpoint interval: 10s for trip state ops</span>
+            <span class="tag">TaskManagers on SSDs, not HDDs</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION: FLINK BATCH
+  ═══════════════════════════════════════════════ -->
+  <div class="section" id="flink-batch">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--purple-bg);border:1px solid var(--purple-border)">
+        <span style="color:var(--purple);font-size:16px">▣</span>
+      </div>
+      <div>
+        <div class="section-title">Flink Batch — Nightly Jobs</div>
+        <div class="section-desc">Bronze → Silver → Gold aggregation, backfill, reconciliation</div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc12">
+      <div class="failure-header" onclick="toggle('fc12')">
+        <div class="failure-left">
+          <span class="severity-badge sev-high">HIGH</span>
+          <div>
+            <div class="failure-name">Nightly Gold job fails at 03:00 — driver payout calculations missing</div>
+            <div class="failure-hint">OOM on large partition → job fails → Gold not updated → payouts run on stale data</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">The nightly Flink batch job aggregates Bronze Parquet into Gold summaries (driver earnings, zone heatmaps). On a high-volume day (e.g., New Year's Eve), one partition has 3× normal size. The Flink task processing it runs out of heap. The job fails at 03:00. Gold is not updated. At 06:00, the driver payout service queries Gold for earnings data — it gets yesterday's values. Drivers are paid wrong amounts.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Business impact</div>
+          <div class="impact-row">
+            <div class="impact-cell"><div class="impact-label">Driver payouts</div><div class="impact-val" style="color:var(--red)">Incorrect</div></div>
+            <div class="impact-cell"><div class="impact-label">Discovery time</div><div class="impact-val">At 06:00 batch run</div></div>
+            <div class="impact-cell"><div class="impact-label">Recovery time</div><div class="impact-val">1–3 hours</div></div>
+          </div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Increase Flink TaskManager heap for batch jobs: set <code style="font-family:var(--mono);color:#93c5fd">taskmanager.memory.process.size=8g</code> and resubmit</li>
+            <li><div class="step-num">2</div>Re-run the failed Gold job immediately. Bronze is immutable — it's always available to re-derive from</li>
+            <li><div class="step-num">3</div>Delay driver payout service start time until Gold is confirmed fresh: check <code style="font-family:var(--mono);color:#93c5fd">gold/_SUCCESS</code> sentinel file in MinIO before proceeding</li>
+            <li><div class="step-num">4</div>Implement partition-level restart: failed jobs checkpoint their progress per-partition, restart from the failed partition only</li>
+          </ol>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention</div>
+          <div class="tags">
+            <span class="tag">Gold freshness gate before payouts</span>
+            <span class="tag">Batch job alert if not completed by 04:30</span>
+            <span class="tag">Adaptive query execution (auto-scale parallelism)</span>
+            <span class="tag">Skew detection on partition size pre-job</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc13">
+      <div class="failure-header" onclick="toggle('fc13')">
+        <div class="failure-left">
+          <span class="severity-badge sev-medium">MEDIUM</span>
+          <div>
+            <div class="failure-name">Backfill job overwrites current Silver partition — data corruption</div>
+            <div class="failure-hint">Re-run of old backfill job without partition check → overwrites today's Silver data with old logic</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">An engineer re-runs a backfill job to fix a 3-day-old data issue but accidentally sets the date range to include today. The job writes to <code style="font-family:var(--mono);color:#93c5fd">silver/trips_enriched/year=2026/month=04/day=22/</code> — overwriting today's streaming-produced Silver with batch-produced (and potentially different logic version) data. Today's Gold aggregates become inconsistent with what ClickHouse has already ingested.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>MinIO versioning enabled: restore overwritten partition from previous version</li>
+            <li><div class="step-num">2</div>Re-run Gold batch job for the affected day with the restored Silver</li>
+            <li><div class="step-num">3</div>Invalidate ClickHouse partition: <code style="font-family:var(--mono);color:#93c5fd">ALTER TABLE trips DROP PARTITION '202604'</code> and reload from corrected Gold</li>
+          </ol>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention</div>
+          <div class="tags">
+            <span class="tag">MinIO versioning on Silver/Gold buckets</span>
+            <span class="tag">Backfill jobs require explicit --dry-run first</span>
+            <span class="tag">Backfill blocked on partitions &lt; 2 days old</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION: RULE ENGINE
+  ═══════════════════════════════════════════════ -->
+  <div class="section" id="rule-engine">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--teal-bg);border:1px solid var(--teal-border)">
+        <span style="color:var(--teal);font-size:16px">◇</span>
+      </div>
+      <div>
+        <div class="section-title">Rule Engine — Dynamic Business Logic</div>
+        <div class="section-desc">Flink broadcast state, PostgreSQL rule store, surge/fraud logic</div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc14">
+      <div class="failure-header" onclick="toggle('fc14')">
+        <div class="failure-left">
+          <span class="severity-badge sev-critical">CRITICAL</span>
+          <div>
+            <div class="failure-name">Buggy rule deployed → surge multiplier set to 0 for all zones</div>
+            <div class="failure-hint">Rule syntax error passes validation → broadcast to all Flink operators → zero-fare trips issued</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">A product manager updates the surge rule in the PostgreSQL rule store. The rule has a logic error: <code style="font-family:var(--mono);color:#93c5fd">surge_multiplier = demand / available_drivers * 0</code> (accidentally multiplied by zero). Flink's broadcast stream picks up the new rule within 30s and broadcasts it to all 64 parallel operators. Every trip from that point forward gets surge_multiplier = 0. Revenue per trip drops to base fare × 0 = effectively zero. If undetected for 1 hour at 10,000 trips/hour, the revenue loss is enormous.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Business impact</div>
+          <div class="impact-row">
+            <div class="impact-cell"><div class="impact-label">Revenue loss</div><div class="impact-val" style="color:var(--red)">Severe / hour</div></div>
+            <div class="impact-cell"><div class="impact-label">Detection time</div><div class="impact-val">Revenue KPI spike</div></div>
+            <div class="impact-cell"><div class="impact-label">Recovery</div><div class="impact-val">Rollback rule + refund</div></div>
+          </div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Immediately: set rule <code style="font-family:var(--mono);color:#93c5fd">effective_until = NOW()</code> in PostgreSQL to deactivate the buggy rule</li>
+            <li><div class="step-num">2</div>Restore previous rule version from rule audit table (every rule change is versioned, never deleted)</li>
+            <li><div class="step-num">3</div>Flink picks up the restored rule within 30s — surge pricing corrects forward</li>
+            <li><div class="step-num">4</div>For affected trips: query Silver for trips with <code style="font-family:var(--mono);color:#93c5fd">surge_mult = 0</code> during the window → issue fare corrections in PostgreSQL payments table</li>
+            <li><div class="step-num">5</div>Re-run Gold aggregates for affected partitions to correct revenue figures</li>
+          </ol>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention — mandatory rule validation pipeline</div>
+          <div class="code"><span class="c">-- Validation checks before any rule goes live:</span>
+<span class="k">CHECK</span> surge_multiplier <span class="k">BETWEEN</span> <span class="n">0.8</span> <span class="k">AND</span> <span class="n">10.0</span>   <span class="c">-- range guard</span>
+<span class="k">CHECK</span> rule_expression <span class="k">NOT CONTAINS</span> <span class="s">'* 0'</span>         <span class="c">-- zero-mult guard</span>
+<span class="k">REQUIRE</span> shadow_mode_test_on_last_24h_data          <span class="c">-- dry run first</span>
+<span class="k">REQUIRE</span> approver != author                         <span class="c">-- 4-eyes principle</span></div>
+          <div class="tags" style="margin-top:10px">
+            <span class="tag">Shadow mode testing before live</span>
+            <span class="tag">Range guards on all numeric outputs</span>
+            <span class="tag">Revenue KPI alert on &gt;20% drop in 5min</span>
+            <span class="tag">4-eyes approval for rule changes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION: MINIO
+  ═══════════════════════════════════════════════ -->
+  <div class="section" id="minio">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--amber-bg);border:1px solid var(--amber-border)">
+        <span style="color:var(--amber);font-size:16px">▦</span>
+      </div>
+      <div>
+        <div class="section-title">MinIO / S3 Storage</div>
+        <div class="section-desc">Bronze, Silver, Gold Parquet/Avro, Flink checkpoints</div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc15">
+      <div class="failure-header" onclick="toggle('fc15')">
+        <div class="failure-left">
+          <span class="severity-badge sev-critical">CRITICAL</span>
+          <div>
+            <div class="failure-name">MinIO disk full — Bronze writes fail, Flink checkpoints fail simultaneously</div>
+            <div class="failure-hint">Unmonitored disk growth + large GPS volume → disk at 100% → Bronze writes blocked + checkpoints fail → pipeline unstable</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">Bronze GPS Avro files write continuously at ~10 TB/day. Without lifecycle policies, Bronze fills the MinIO cluster. When disk hits 100%, two things fail simultaneously: (1) Flink Bronze sink starts returning 503 errors, causing GPS data loss. (2) Flink checkpoint writes to MinIO also fail — Flink cannot persist state. If Flink then crashes, it cannot recover. This is a compounding failure: data loss + unrecoverable state.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Emergency: delete oldest Bronze GPS partitions beyond 90-day retention (Bronze GPS is lowest-value storage)</li>
+            <li><div class="step-num">2</div>Flink will auto-recover checkpoints once MinIO has space — restart Flink if needed</li>
+            <li><div class="step-num">3</div>Implement MinIO lifecycle rule immediately: <code style="font-family:var(--mono);color:#93c5fd">bronze/gps/ → expire after 90 days</code></li>
+          </ol>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention</div>
+          <div class="tags">
+            <span class="tag">Alert: MinIO disk &gt; 70%</span>
+            <span class="tag">Lifecycle: Bronze GPS expire 90d</span>
+            <span class="tag">Lifecycle: Bronze CDC expire 90d</span>
+            <span class="tag">Separate MinIO cluster for checkpoints</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION: SCHEMA EVOLUTION
+  ═══════════════════════════════════════════════ -->
+  <div class="section" id="schema">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--green-bg);border:1px solid var(--green-border)">
+        <span style="color:var(--green);font-size:16px">◑</span>
+      </div>
+      <div>
+        <div class="section-title">Schema Evolution Edge Cases</div>
+        <div class="section-desc">Avro Schema Registry, Parquet schema drift, backward/forward compatibility</div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc16">
+      <div class="failure-header" onclick="toggle('fc16')">
+        <div class="failure-left">
+          <span class="severity-badge sev-high">HIGH</span>
+          <div>
+            <div class="failure-name">Breaking schema change published to Schema Registry without compatibility check</div>
+            <div class="failure-hint">Renamed field in GPS Avro schema → all existing consumers fail to deserialize new events</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">A developer renames <code style="font-family:var(--mono);color:#93c5fd">speed_kmh</code> to <code style="font-family:var(--mono);color:#93c5fd">speed_ms</code> in the GPS Avro schema and registers it with Schema Registry. Flink operators compiled against the old schema cannot deserialize the new events — field not found. The Flink GPS validation operator starts throwing deserialization exceptions. Events route to DLQ. GPS processing stops.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Revert schema: register previous schema version as the current one in Schema Registry</li>
+            <li><div class="step-num">2</div>Events already on DLQ: re-process from DLQ topic using a Flink job that handles both schema versions</li>
+            <li><div class="step-num">3</div>Correct approach for rename: add new field <code style="font-family:var(--mono);color:#93c5fd">speed_ms</code> with alias <code style="font-family:var(--mono);color:#93c5fd">["speed_kmh"]</code> — Avro aliases allow both consumers to read it</li>
+          </ol>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention</div>
+          <div class="tags">
+            <span class="tag">Schema Registry: BACKWARD_TRANSITIVE compatibility</span>
+            <span class="tag">Schema changes blocked unless compatible</span>
+            <span class="tag">Never rename fields — use aliases</span>
+            <span class="tag">Schema change PR requires Flink consumer test</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION: CLICKHOUSE
+  ═══════════════════════════════════════════════ -->
+  <div class="section" id="clickhouse">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--blue-bg);border:1px solid var(--blue-border)">
+        <span style="color:var(--blue);font-size:16px">⬡</span>
+      </div>
+      <div>
+        <div class="section-title">ClickHouse OLAP — Analytics Layer</div>
+        <div class="section-desc">MergeTree tables, Materialized Views, real-time ingestion, query performance</div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc17">
+      <div class="failure-header" onclick="toggle('fc17')">
+        <div class="failure-left">
+          <span class="severity-badge sev-high">HIGH</span>
+          <div>
+            <div class="failure-name">ClickHouse too many parts error — ingestion blocked</div>
+            <div class="failure-hint">High-frequency inserts create too many small parts → CH throws "Too many parts" → writes rejected</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">ClickHouse MergeTree writes data in "parts" that are periodically merged in the background. If data arrives faster than ClickHouse can merge (e.g., Flink inserts 1,000 rows/second in tiny batches of 10 rows), the number of active parts explodes. ClickHouse enforces a limit (~300 parts per partition) and throws <code style="font-family:var(--mono);color:#93c5fd">Too many parts (N). Merges are processing significantly slower than inserts</code>. All writes are rejected. Real-time GPS-to-dashboard pipeline breaks.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Emergency: <code style="font-family:var(--mono);color:#93c5fd">SYSTEM START MERGES trips</code> — ensure merges are running</li>
+            <li><div class="step-num">2</div>Increase batch size in Flink ClickHouse sink: from rows-per-insert to buffer of 10,000 rows or 1s — dramatically reduces part creation rate</li>
+            <li><div class="step-num">3</div>Set <code style="font-family:var(--mono);color:#93c5fd">max_insert_block_size = 100000</code> and <code style="font-family:var(--mono);color:#93c5fd">min_insert_block_size_rows = 100000</code> in ClickHouse</li>
+            <li><div class="step-num">4</div>Monitor: <code style="font-family:var(--mono);color:#93c5fd">SELECT count() FROM system.parts WHERE table='trips' AND active</code> — should stay below 100</div></li>
+          </ol>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention</div>
+          <div class="tags">
+            <span class="tag">Flink CH sink: batch=10000 rows or 1s</span>
+            <span class="tag">Alert: active parts &gt; 200</span>
+            <span class="tag">Buffer table pattern (Kafka engine → MV → final table)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc18">
+      <div class="failure-header" onclick="toggle('fc18')">
+        <div class="failure-left">
+          <span class="severity-badge sev-high">HIGH</span>
+          <div>
+            <div class="failure-name">Materialized View query returns stale data — surge pricing uses wrong demand figures</div>
+            <div class="failure-hint">MV definition uses wrong ORDER BY → background deduplication gives incorrect sums</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">The <code style="font-family:var(--mono);color:#93c5fd">zone_demand_hourly</code> Materialized View uses <code style="font-family:var(--mono);color:#93c5fd">SummingMergeTree</code>. This engine merges rows with the same ORDER BY key by summing numeric columns. If the ORDER BY key is wrong (e.g., missing <code style="font-family:var(--mono);color:#93c5fd">hour</code>), all hours for a zone merge into one row with an enormous incorrect trip count. Surge pricing API queries this MV and gets wildly inflated demand figures — surge fires incorrectly in zones with normal demand, driving away riders.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Drop and recreate the MV with correct definition</li>
+            <li><div class="step-num">2</div>Backfill MV from source trips table: <code style="font-family:var(--mono);color:#93c5fd">INSERT INTO zone_demand_hourly SELECT ... FROM trips WHERE trip_start > now() - INTERVAL 7 DAY</code></li>
+            <li><div class="step-num">3</div>Validate MV output: cross-check with direct query on trips table for same time window</li>
+            <li><div class="step-num">4</div>Surge pricing API: add sanity check — if MV demand > 3× rolling average for zone, use direct trips query instead</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION: REST API
+  ═══════════════════════════════════════════════ -->
+  <div class="section" id="api">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--green-bg);border:1px solid var(--green-border)">
+        <span style="color:var(--green);font-size:16px">⊡</span>
+      </div>
+      <div>
+        <div class="section-title">REST API Layer</div>
+        <div class="section-desc">FastAPI/Go → ClickHouse → Redis cache → downstream consumers</div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc19">
+      <div class="failure-header" onclick="toggle('fc19')">
+        <div class="failure-left">
+          <span class="severity-badge sev-medium">MEDIUM</span>
+          <div>
+            <div class="failure-name">Redis cache stampede — ClickHouse overwhelmed on cache expiry</div>
+            <div class="failure-hint">All zone demand cache keys expire simultaneously → 1000 concurrent requests hit ClickHouse</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">All zone demand cache keys are set with TTL = 30s at the same time (on service startup or after a Redis flush). When they all expire simultaneously, a burst of 1000+ concurrent API requests bypass the cache and query ClickHouse directly. ClickHouse, designed for analytical workloads, is not optimised for 1000 concurrent point queries — it queues them, response times spike to 30s, and the API times out. Surge pricing UI shows errors for all riders simultaneously.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery + Prevention</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Use jittered TTL: <code style="font-family:var(--mono);color:#93c5fd">TTL = 30 + random(0, 10)</code> seconds — staggers cache expiry</li>
+            <li><div class="step-num">2</div>Implement "probabilistic early expiry": recompute cache when TTL &lt; 5s with 10% probability — prevents thundering herd</li>
+            <li><div class="step-num">3</div>Single-flight pattern: if cache miss, only one goroutine fetches from ClickHouse; others wait for the result</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION: DATA QUALITY
+  ═══════════════════════════════════════════════ -->
+  <div class="section" id="data-quality">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--amber-bg);border:1px solid var(--amber-border)">
+        <span style="color:var(--amber);font-size:16px">◈</span>
+      </div>
+      <div>
+        <div class="section-title">Data Quality — Cross-Cutting Failures</div>
+        <div class="section-desc">Scenarios that span multiple layers and are hardest to detect</div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc20">
+      <div class="failure-header" onclick="toggle('fc20')">
+        <div class="failure-left">
+          <span class="severity-badge sev-critical">CRITICAL</span>
+          <div>
+            <div class="failure-name">Silent data loss — pipeline appears healthy but events are dropping</div>
+            <div class="failure-hint">Flink filter operator bug discards 5% of GPS events with no error, no alert, no DLQ entry</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">A Flink filter operator meant to remove duplicate GPS pings has an off-by-one bug in its bloom filter time window. It discards 5% of valid events, not just duplicates. No exception is thrown. No DLQ entry. Kafka consumer lag is normal. Flink checkpoints succeed. From a pipeline health perspective, everything looks fine. But Silver GPS data has a 5% hole — ETA calculations are subtly wrong, driver distance calculations undercount, earnings are slightly off. This could go undetected for days or weeks.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Detection — this requires proactive checks</div>
+          <div class="fb-text">This failure type cannot be detected by infrastructure monitoring alone. It requires data-level checks:</div>
+          <div class="code"><span class="c">-- Run hourly: compare event count between layers</span>
+<span class="k">SELECT</span>
+  bronze_count,
+  silver_count,
+  (bronze_count - silver_count) / bronze_count <span class="k">AS</span> drop_rate
+<span class="k">FROM</span> (
+  <span class="k">SELECT</span> count(*) <span class="k">AS</span> bronze_count <span class="k">FROM</span> bronze_gps <span class="k">WHERE</span> hour = <span class="n">current_hour</span>
+) b, (
+  <span class="k">SELECT</span> count(*) <span class="k">AS</span> silver_count <span class="k">FROM</span> silver_gps_validated <span class="k">WHERE</span> hour = <span class="n">current_hour</span>
+) s
+<span class="c">-- Alert if drop_rate > 0.02 (2% expected for legitimate anomalies)</span></div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Recovery steps</div>
+          <ol class="step-list">
+            <li><div class="step-num">1</div>Identify the buggy Flink operator from the count discrepancy — binary search across operators</li>
+            <li><div class="step-num">2</div>Fix and redeploy Flink job</li>
+            <li><div class="step-num">3</div>Backfill: re-run Flink batch job over Bronze for the affected time range to regenerate correct Silver</li>
+            <li><div class="step-num">4</div>Recalculate Gold aggregates and ClickHouse partitions for the affected window</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <div class="failure-card" id="fc21">
+      <div class="failure-header" onclick="toggle('fc21')">
+        <div class="failure-left">
+          <span class="severity-badge sev-high">HIGH</span>
+          <div>
+            <div class="failure-name">Time zone confusion — all timestamps shifted by ±5.5 hours in Gold</div>
+            <div class="failure-hint">Mixed UTC and IST timestamps in Gold Parquet → zone heatmaps show peak demand at wrong hours</div>
+          </div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="failure-body">
+        <div class="fb-section">
+          <div class="fb-label">What happens</div>
+          <div class="fb-text">The GPS devices send timestamps in local time (IST = UTC+5:30) without timezone info. The CDC events from PostgreSQL use UTC. Flink processes both streams and joins them. A join condition uses <code style="font-family:var(--mono);color:#93c5fd">trip_start</code> from PostgreSQL (UTC) to match GPS pings (IST). All GPS pings for a trip are "5.5 hours early" — they appear to be from before the trip started. The join fails silently (no matching window). Gold heatmaps show zero GPS activity during actual peak hours.</div>
+        </div>
+        <div class="fb-section">
+          <div class="fb-label">Prevention</div>
+          <div class="tags">
+            <span class="tag">All timestamps stored as UTC in every system</span>
+            <span class="tag">GPS device SDK: convert to UTC before transmit</span>
+            <span class="tag">Schema: all timestamp fields annotated as UTC in Avro doc field</span>
+            <span class="tag">Flink: validate event_time is within ±24h of server_ingest_time</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION: LIVE STATUS MOCKUP
+  ═══════════════════════════════════════════════ -->
+  <div class="section" id="live-status">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--green-bg);border:1px solid var(--green-border)">
+        <span style="color:var(--green);font-size:16px">●</span>
+      </div>
+      <div>
+        <div class="section-title">Live System Status — Example Dashboard</div>
+        <div class="section-desc">What your ops dashboard looks like during a real incident</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:1.5rem">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('normal')">Normal state</div>
+        <div class="tab" onclick="switchTab('incident')">During incident</div>
+      </div>
+
+      <div class="tab-content active" id="normal">
+        <div class="status-grid" style="margin-bottom:1rem">
+          <div class="status-card">
+            <div class="status-name">Kafka consumer lag</div>
+            <div class="status-val" style="color:var(--green)">2,100</div>
+            <div class="status-sub"><span class="pulse" style="background:var(--green)"></span>Healthy · rides.gps.raw</div>
+          </div>
+          <div class="status-card">
+            <div class="status-name">Flink checkpoint</div>
+            <div class="status-val" style="color:var(--green)">18s</div>
+            <div class="status-sub"><span class="pulse" style="background:var(--green)"></span>Last: 42s ago</div>
+          </div>
+          <div class="status-card">
+            <div class="status-name">Stream latency</div>
+            <div class="status-val" style="color:var(--green)">1.4s</div>
+            <div class="status-sub"><span class="pulse" style="background:var(--green)"></span>Target &lt;2s</div>
+          </div>
+          <div class="status-card">
+            <div class="status-name">ClickHouse parts</div>
+            <div class="status-val" style="color:var(--green)">87</div>
+            <div class="status-sub"><span class="pulse" style="background:var(--green)"></span>trips table · OK</div>
+          </div>
+          <div class="status-card">
+            <div class="status-name">DLQ rate</div>
+            <div class="status-val" style="color:var(--green)">0.02%</div>
+            <div class="status-sub"><span class="pulse" style="background:var(--green)"></span>rides.dlq</div>
+          </div>
+          <div class="status-card">
+            <div class="status-name">MinIO disk</div>
+            <div class="status-val" style="color:var(--green)">54%</div>
+            <div class="status-sub"><span class="pulse" style="background:var(--green)"></span>2.7 TB free</div>
+          </div>
+        </div>
+
+        <div class="alert-feed">
+          <div class="alert-item ok">
+            <div class="alert-time">09:14:03</div>
+            <div class="alert-text"><strong>Gold batch completed</strong> — daily_driver_summary written. 2h 14m runtime. All partitions verified.</div>
+          </div>
+          <div class="alert-item info">
+            <div class="alert-time">08:30:00</div>
+            <div class="alert-text"><strong>Schema Registry</strong> — GPS schema v7 registered. Backward compatible. Flink operators updated.</div>
+          </div>
+          <div class="alert-item ok">
+            <div class="alert-time">01:00:12</div>
+            <div class="alert-text"><strong>Reconciliation job</strong> — 0 discrepancies found between PostgreSQL payments and Silver layer.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="incident">
+        <div class="status-grid" style="margin-bottom:1rem">
+          <div class="status-card">
+            <div class="status-name">Kafka consumer lag</div>
+            <div class="status-val" style="color:var(--red)">847,200</div>
+            <div class="status-sub"><span class="pulse" style="background:var(--red)"></span>CRITICAL · rides.gps.raw</div>
+          </div>
+          <div class="status-card">
+            <div class="status-name">Flink checkpoint</div>
+            <div class="status-val" style="color:var(--red)">FAILED</div>
+            <div class="status-sub"><span class="pulse" style="background:var(--red)"></span>3 consecutive failures</div>
+          </div>
+          <div class="status-card">
+            <div class="status-name">Stream latency</div>
+            <div class="status-val" style="color:var(--red)">94s</div>
+            <div class="status-sub"><span class="pulse" style="background:var(--red)"></span>Target &lt;2s · SLA BREACH</div>
+          </div>
+          <div class="status-card">
+            <div class="status-name">ClickHouse parts</div>
+            <div class="status-val" style="color:var(--red)">312</div>
+            <div class="status-sub"><span class="pulse" style="background:var(--red)"></span>trips table · TOO MANY</div>
+          </div>
+          <div class="status-card">
+            <div class="status-name">DLQ rate</div>
+            <div class="status-val" style="color:var(--green)">0.03%</div>
+            <div class="status-sub"><span class="pulse" style="background:var(--green)"></span>OK</div>
+          </div>
+          <div class="status-card">
+            <div class="status-name">MinIO disk</div>
+            <div class="status-val" style="color:var(--amber)">81%</div>
+            <div class="status-sub"><span class="pulse" style="background:var(--amber)"></span>Warning · 0.9 TB free</div>
+          </div>
+        </div>
+
+        <div class="alert-feed">
+          <div class="alert-item crit">
+            <div class="alert-time">14:32:11</div>
+            <div class="alert-text"><strong>[P1] ClickHouse Too Many Parts</strong> — trips table has 312 active parts. Write ingestion blocked. Surge pricing API returning 503. Incident #4421 opened.</div>
+          </div>
+          <div class="alert-item crit">
+            <div class="alert-time">14:31:58</div>
+            <div class="alert-text"><strong>[P1] Flink checkpoint failed (3rd)</strong> — MinIO write timeout 10002ms. State not persisted. Last good checkpoint: 14:28:31. Risk: replay from 14:28 on crash.</div>
+          </div>
+          <div class="alert-item warn">
+            <div class="alert-time">14:30:44</div>
+            <div class="alert-text"><strong>[P2] Kafka GPS lag exploding</strong> — consumer group flink-gps-validator lag: 847K and growing. Backpressure detected at ClickHouse sink operator (88%).</div>
+          </div>
+          <div class="alert-item warn">
+            <div class="alert-time">14:29:10</div>
+            <div class="alert-text"><strong>[P2] MinIO disk 81%</strong> — Bronze GPS partition for today is 340 GB. Lifecycle rule hasn't run yet. Projected full in 6 hours at current rate.</div>
+          </div>
+          <div class="alert-item info">
+            <div class="alert-time">14:28:03</div>
+            <div class="alert-text"><strong>Root cause identified</strong> — Flink ClickHouse sink batch size was changed from 10,000 rows to 10 rows in yesterday's deployment. Creating 1,000× more parts than normal.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION: RUNBOOK
+  ═══════════════════════════════════════════════ -->
+  <div class="section" id="runbook">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--red-bg);border:1px solid var(--red-border)">
+        <span style="color:var(--red);font-size:16px">▣</span>
+      </div>
+      <div>
+        <div class="section-title">Quick Runbook — All Critical Failures</div>
+        <div class="section-desc">First-responder reference: symptom → component → first action</div>
+      </div>
+    </div>
+
+    <div class="runbook">
+      <div class="runbook-header">
+        <span>Symptom observed</span>
+        <span>Likely component</span>
+      </div>
+      <div class="runbook-row">
+        <div class="runbook-cell runbook-step">1</div>
+        <div class="runbook-cell">GPS data gap in Silver</div>
+        <div class="runbook-cell">Check Kafka GPS consumer lag. Then Debezium connector status. Then ingestion pod logs.</div>
+        <div class="runbook-cell"><span style="color:var(--teal);font-size:11px;font-family:var(--mono)">Kafka / Ingest</span></div>
+      </div>
+      <div class="runbook-row">
+        <div class="runbook-cell runbook-step">2</div>
+        <div class="runbook-cell">Surge pricing stale / wrong</div>
+        <div class="runbook-cell">Check ClickHouse MV freshness. Check Flink backpressure. Check rule engine broadcast state lag.</div>
+        <div class="runbook-cell"><span style="color:var(--teal);font-size:11px;font-family:var(--mono)">CH / Flink / Rules</span></div>
+      </div>
+      <div class="runbook-row">
+        <div class="runbook-cell runbook-step">3</div>
+        <div class="runbook-cell">Driver payouts incorrect</div>
+        <div class="runbook-cell">Check Gold batch _SUCCESS sentinel. Re-run Gold job. Check reconciliation delta. Never release payouts before Gold is confirmed.</div>
+        <div class="runbook-cell"><span style="color:var(--teal);font-size:11px;font-family:var(--mono)">Flink Batch / Gold</span></div>
+      </div>
+      <div class="runbook-row">
+        <div class="runbook-cell runbook-step">4</div>
+        <div class="runbook-cell">PostgreSQL disk alarm</div>
+        <div class="runbook-cell">Check pg_replication_slots WAL lag immediately. If slot bloated, evaluate max_slot_wal_keep_size or emergency drop + snapshot.</div>
+        <div class="runbook-cell"><span style="color:var(--teal);font-size:11px;font-family:var(--mono)">Debezium / PG</span></div>
+      </div>
+      <div class="runbook-row">
+        <div class="runbook-cell runbook-step">5</div>
+        <div class="runbook-cell">API 503 on zone demand</div>
+        <div class="runbook-cell">Check CH parts count. If >300: SYSTEM START MERGES. Increase Flink sink batch size. Check Redis cache hit rate.</div>
+        <div class="runbook-cell"><span style="color:var(--teal);font-size:11px;font-family:var(--mono)">ClickHouse / Redis</span></div>
+      </div>
+      <div class="runbook-row">
+        <div class="runbook-cell runbook-step">6</div>
+        <div class="runbook-cell">Flink job crashed</div>
+        <div class="runbook-cell">Check last checkpoint timestamp in Web UI. Restart — auto-recovers from checkpoint. If checkpoint also failed, check MinIO health first.</div>
+        <div class="runbook-cell"><span style="color:var(--teal);font-size:11px;font-family:var(--mono)">Flink / MinIO</span></div>
+      </div>
+      <div class="runbook-row">
+        <div class="runbook-cell runbook-step">7</div>
+        <div class="runbook-cell">DLQ spike (&gt;1%)</div>
+        <div class="runbook-cell">Sample DLQ messages. Check if schema changed recently (Schema Registry). Check Debezium for PG schema change. Fix schema, restart connector, replay DLQ.</div>
+        <div class="runbook-cell"><span style="color:var(--teal);font-size:11px;font-family:var(--mono)">Schema / Debezium</span></div>
+      </div>
+      <div class="runbook-row">
+        <div class="runbook-cell runbook-step">8</div>
+        <div class="runbook-cell">Revenue KPI drop &gt;20%</div>
+        <div class="runbook-cell">Check surge multiplier in recent Silver trips — if zero or very low, check Rule Engine for buggy rule. Roll back rule immediately.</div>
+        <div class="runbook-cell"><span style="color:var(--teal);font-size:11px;font-family:var(--mono)">Rule Engine</span></div>
+      </div>
+      <div class="runbook-row">
+        <div class="runbook-cell runbook-step">9</div>
+        <div class="runbook-cell">MinIO disk warning</div>
+        <div class="runbook-cell">Check Bronze GPS partition sizes. Verify lifecycle rules are running. If emergency: delete Bronze GPS partitions oldest first (never Silver or Gold).</div>
+        <div class="runbook-cell"><span style="color:var(--teal);font-size:11px;font-family:var(--mono)">MinIO</span></div>
+      </div>
+      <div class="runbook-row">
+        <div class="runbook-cell runbook-step">10</div>
+        <div class="runbook-cell">Silent data loss suspected</div>
+        <div class="runbook-cell">Run Bronze→Silver count comparison query (see Data Quality section). If drop_rate &gt;2%, identify offending Flink operator. Backfill Silver from Bronze after fix.</div>
+        <div class="runbook-cell"><span style="color:var(--teal);font-size:11px;font-family:var(--mono)">Flink / Quality</span></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script>
+function toggle(id) {
+  const card = document.getElementById(id);
+  card.classList.toggle('open');
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['normal','incident'][i] === id);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => {
+    c.classList.toggle('active', c.id === id);
+  });
+}
+
+document.querySelectorAll('.sidebar-item').forEach(item => {
+  item.addEventListener('click', function(e) {
+    document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
